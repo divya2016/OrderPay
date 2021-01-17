@@ -3,7 +3,7 @@ Getting Started :
 
 Steps :
 
-Clone the CMS repo to the host where we want to deploy the code-
+Clone the Orderpay repo to the host where we want to deploy the code-
 git clone https://github.com/divya2016/OrderPay.git
 
 Edit the application.properties file to match your desired host and domain.
