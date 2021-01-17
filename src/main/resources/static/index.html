@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>payment gateway</title>
+    <meta charset="UTF-8">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+      table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+        }
+         th {
+            text-align: center;
+        }
+
+
+    </style>
+    <script>
+    fetchAllUrl = "http://localhost:8080/OrderPay/v1/order/unpaid";
+	function fetchOrders(){
+        var request = new XMLHttpRequest();
+        request.open("GET",fetchAllUrl,true);
+        request.onload = function() {
+            if(request.status === 200 && request.response.status == "Success" && request.response.data.length > 0){
+                var tblTop = '<table id="tbl"><tr><th>OrderId</th><th>Amount</th><th>Name</th><th>Contact</th><th>Email</th><th>Make Payment</th></tr>';
+				var main ="";
+				var orders = request.response.data;
+				for (i = 0; i < orders.length; i++){
+				    var button = "<button id='rzp-btn' onclick = 'test()' >Pay Now</button>";
+				    var tdTr = '<tr id="row' + (i + 1) + '"><td>';
+				    var name  = "" + orders[i].name+"</td><td>";
+				    var email  = ""+orders[i].email+"</td><td>";
+				    var contact  = "" + orders[i].mobileNumber+"</td><td>";
+					main += tdTr+orders[i].orderId+"</td><td>"+orders[i].amount+"</td><td>"+ name + contact + email + button +"</td></tr>";
+				}
+            var tblBottom = "</table>";
+            var heading = "<h4 style='color:red'>Pending Payments</h4>";
+            var tbl = heading + tblTop + main + tblBottom;
+            document.getElementById("orderList").innerHTML = tbl;
+            }else{
+                document.getElementById("orderList").innerHTML = "<p style=\"color:red;\">No Order to make payment</p>";
+        }};
+        request.responseType = 'json'
+        request.send();
+    };
+
+    var capturePaymentURL = "http://localhost:8080/OrderPay/v1/payment/capture";
+    function test(e){
+        var rowId = event.target.parentNode.parentNode.id;
+        var orderId = document.getElementById("tbl").rows[rowId].cells[0].innerHTML;
+        var amount = parseInt(document.getElementById("tbl").rows[rowId].cells[1].innerHTML);
+        var name = document.getElementById("tbl").rows[rowId].cells[2].innerHTML;
+        var mobileNumber = document.getElementById("tbl").rows[rowId].cells[3].innerHTML;
+        var email = document.getElementById("tbl").rows[rowId].cells[4].innerHTML;
+        var options = {
+        "key": "rzp_test_Gk9mEKpYEoIm9s",
+        "amount": amount,
+        "currency": "INR",
+        "name": "ABC Pvt Ltd.",
+        "image": "https://image.shutterstock.com/image-vector/design-alphabet-modern-letter-logo-260nw-772978135.jpg",
+        "order_id": orderId,
+        "handler": function (response){
+           var input = {
+               "razorpay_payment_id" : response.razorpay_payment_id,
+               "razorpay_order_id" : response.razorpay_order_id,
+               "razorpay_signature" : response.razorpay_signature,
+               "orderId" : orderId
+           }
+
+            var request = new XMLHttpRequest();
+            request.open("POST",capturePaymentURL,true);
+            request.setRequestHeader('Content-type', 'application/json');
+            request.onload = function() {
+                if(request.status === 200 && request.response.status == "Success"){
+                    alert("payment successful");
+                    fetchOrders();
+
+                }else{
+                    alert("payment failed");
+                }
+            }
+            request.responseType = 'json'
+            var inputFinal = {"data" : input};
+            var data = JSON.stringify(inputFinal);
+            request.send(data);
+        },
+        "prefill": {
+            "name": name,
+            "email": email,
+            "contact": mobileNumber
+        },
+        "theme": {
+            "color": "#3399cc"
+        }};
+        var razorPay = new Razorpay(options);
+        razorPay.on('payment.failed', function (response){
+            var input = {
+                "code" : response.error.code,
+                "description" : response.error.description,
+                "source" : response.error.source,
+                "step" : response.error.step,
+                "reason" : response.error.reason,
+                "order_id" : response.error.metadata.order_id,
+                "payment_id" : response.error.metadata.payment_id,
+                 "orderId" : orderId
+            }
+            var request = new XMLHttpRequest();
+            request.open("POST",capturePaymentURL,true);
+            request.setRequestHeader('Content-type', 'application/json');
+            request.onload = function() {
+                if(request.status === 200 && request.response.status == "Success"){
+                    console.log("payment updated successful");
+                }else{
+                    console.log("payment update failed");
+                }
+                alert("payment failed");
+            }
+            request.responseType = 'json'
+            var inputFinal = {"data" : input};
+            var data = JSON.stringify(inputFinal);
+            request.send(data);
+        });
+        razorPay.open();
+        e.preventDefault();
+    }
+
+
+
+
+    </script>
+
+    <!-- Create order  -->
+    <script>
+
+    function tempAlert(msg,duration,color){
+        var el = document.createElement("div");
+        el.setAttribute("style","position:absolute;top:41%;left:8%;color:"+color+";");
+        el.innerHTML = msg;
+        setTimeout(function(){
+            el.parentNode.removeChild(el);
+        },duration);
+        document.body.appendChild(el);
+    }
+
+    baseURL = "http://localhost:8080/OrderPay/v1/order/create";
+    function savePersonalDetailsAndCreateOrder(){
+        var name = document.getElementById("name");
+        var contact = document.getElementById("contact");
+        var email = document.getElementById("email");
+        var amount = document.getElementById("amount");
+       // var currency = document.getElementById("currency");
+        var inputData = {
+            "name" : name.value,
+            "email" : email.value,
+            "mobileNumber" : contact.value,
+            "amount" : parseInt(amount.value),
+            "currency" : "INR"
+        };
+        var input = {"data" : inputData};
+        var request = new XMLHttpRequest();
+        request.open("POST",baseURL,true);
+        request.setRequestHeader('Content-type', 'application/json');
+        request.onload = function() {
+            if(request.status === 200 && request.response.status == "Success"){
+                var orderId = request.response.data.id;
+                tempAlert("Successfully created payment request with OrderId : " + orderId , 4000, "green");
+                orderForm.reset();
+                fetchOrders();
+            }else{
+                tempAlert("Failed to create the payment request, Please try again !!" , 4000, "red");
+        }};
+        request.responseType = 'json'
+        var data = JSON.stringify(input);
+        request.send(data);
+    }
+
+
+    </script>
+
+    <script>
+    fetchAllPaymentsURL = "http://localhost:8080/OrderPay/v1/order/all";
+	function fetchAllPayments(){
+        var request = new XMLHttpRequest();
+        request.open("GET",fetchAllPaymentsURL,true);
+        request.onload = function() {
+            if(request.status === 200 && request.response.status == "Success" && request.response.data.length > 0){
+                var tblTop = '<table id="tbl"><tr><th>OrderId</th><th>Amount</th><th>Name</th><th>Contact</th><th>Email</th><th>Status</th></tr>';
+				var main ="";
+				var orders = request.response.data;
+				for (i = 0; i < orders.length; i++){
+				    var status = orders[i].status;
+				    var tdTr = '<tr id="row' + (i + 1) + '"><td>';
+				    var name  = "" + orders[i].name+"</td><td>";
+				    var email  = ""+orders[i].email+"</td><td>";
+				    var contact  = "" + orders[i].mobileNumber+"</td><td>";
+					main += tdTr+orders[i].orderId+"</td><td>"+orders[i].amount+"</td><td>"+ name + contact + email + status +"</td></tr>";
+				}
+            var tblBottom = "</table>";
+            var heading = "<h4 style='color:red'>All Payments</h4>";
+            var tbl = heading + tblTop + main + tblBottom;
+            document.getElementById("allOrderList").innerHTML = tbl;
+            }else{
+                document.getElementById("allOrderList").innerHTML = "<p style=\"color:red;\">No payment made yet, start with creating an Order</p>";
+        }};
+        request.responseType = 'json'
+        request.send();
+    };
+
+
+    </script>
+
+</head>
+<body onload="fetchOrders();">
+<h3 style="color:blue">Create order for payment</h3>
+<form id="orderForm" onsubmit="return false">
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name"><br><br>
+    <label for="email">Email:</label>
+    <input type="email" id="email" name="email"><br><br>
+    <label for="contact">Contact:</label>
+    <input type="tel" id="contact" name="contact"><br><br>
+    <label for="amount">Amount:</label>
+    <input type="number" id="amount" name="amount"><br><br>
+    <input type="submit" value="Submit" onclick="savePersonalDetailsAndCreateOrder()">
+</form>
+<div id="orderList"></div>
+<br><br>
+<input type="submit" style="color:green" value="Fetch All Payments" onclick="fetchAllPayments()">
+<div id="allOrderList"></div>
+</body>
+</html>
